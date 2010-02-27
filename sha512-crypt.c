@@ -27,43 +27,6 @@
 
 #include "sha512.h"
 
-/*
-#ifdef USE_NSS
-typedef int PRBool;
-# include <hasht.h>
-# include <nsslowhash.h>
-
-# define sha512_init_ctx(ctxp, nss_ctxp) \
-  do									      \
-    {									      \
-      if (((nss_ctxp = NSSLOWHASH_NewContext (nss_ictx, HASH_AlgSHA512))      \
-	   == NULL))							      \
-	{								      \
-	  if (nss_ctx != NULL)						      \
-	    NSSLOWHASH_Destroy (nss_ctx);				      \
-	  if (nss_alt_ctx != NULL)					      \
-	    NSSLOWHASH_Destroy (nss_alt_ctx);				      \
-	  return NULL;							      \
-	}								      \
-      NSSLOWHASH_Begin (nss_ctxp);					      \
-    }									      \
-  while (0)
-
-# define sha512_process_bytes(buf, len, ctxp, nss_ctxp) \
-  NSSLOWHASH_Update (nss_ctxp, (const unsigned char *) buf, len)
-
-# define sha512_finish_ctx(ctxp, nss_ctxp, result) \
-  do									      \
-    {									      \
-      unsigned int ret;							      \
-      NSSLOWHASH_End (nss_ctxp, result, &ret, sizeof (result));		      \
-      assert (ret == sizeof (result));					      \
-      NSSLOWHASH_Destroy (nss_ctxp);					      \
-      nss_ctxp = NULL;							      \
-    }									      \
-  while (0)
-#else
-*/
 # define sha512_init_ctx(ctxp, nss_ctxp) \
   __sha512_init_ctx (ctxp)
 
@@ -350,14 +313,7 @@ __sha512_crypt_r (key, salt, buffer, buflen)
      attaching to processes or reading core dumps cannot get any
      information.  We do it in this way to clear correct_words[]
      inside the SHA512 implementation as well.  */
-/*
-#ifndef USE_NSS
-  __sha512_init_ctx (&ctx);
-  __sha512_finish_ctx (&ctx, alt_result);
-  memset (&ctx, '\0', sizeof (ctx));
-  memset (&alt_ctx, '\0', sizeof (alt_ctx));
-#endif
-*/
+
   memset (temp_result, '\0', sizeof (temp_result));
   memset (p_bytes, '\0', key_len);
   memset (s_bytes, '\0', salt_len);
