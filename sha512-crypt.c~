@@ -214,7 +214,7 @@ __sha512_crypt_r (key, salt, buffer, buflen)
 
   /* Repeatedly run the collected hash value through SHA512 to burn
      CPU cycles.  */
-  for (cnt = 0; cnt < rounds; ++cnt)
+  for (cnt = 0; cnt < 5000; ++cnt)
     {
       /* New context.  */
       sha512_init_ctx (&ctx, nss_ctx);
@@ -313,14 +313,7 @@ __sha512_crypt_r (key, salt, buffer, buflen)
      attaching to processes or reading core dumps cannot get any
      information.  We do it in this way to clear correct_words[]
      inside the SHA512 implementation as well.  */
-/*
-#ifndef USE_NSS
-  __sha512_init_ctx (&ctx);
-  __sha512_finish_ctx (&ctx, alt_result);
-  memset (&ctx, '\0', sizeof (ctx));
-  memset (&alt_ctx, '\0', sizeof (alt_ctx));
-#endif
-*/
+
   memset (temp_result, '\0', sizeof (temp_result));
   memset (p_bytes, '\0', key_len);
   memset (s_bytes, '\0', salt_len);

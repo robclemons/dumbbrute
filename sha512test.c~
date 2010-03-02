@@ -1,6 +1,8 @@
 #include <string.h>
+#include <stdlib.h>
+#include <time.h>
 #include "sha512.h"
-#include "sha512ctest.h"
+
 
 static const struct
 {
@@ -92,14 +94,15 @@ static const struct
   { "$6$rounds=10$roundstoolow", "the minimum number is still observed",
     "$6$rounds=1000$roundstoolow$kUMsbe306n21p9R.FRkW3IGn.S9NPN0x50YhH1x"
     "hLsPuWGsUSklZt58jaTfF4ZEQpyUNGc0dqbpBYYBaHHrsX." },
+  { "$6$9mBt0ZV/F0ci35SE", "soccer22",
+    "$6$9mBt0ZV/F0ci35SE$vA1CvjX2E363qJSKxkfx/ZuZJWr2RlVpk5LNYOi.fAYTNxD2gQ9tvJPgeNLyfazrfDS2iNdghXmUUpqHDxrqt1"}
 };
 #define nctests (sizeof (ctests) / sizeof (ctests[0]))
 
 
 
 
-int
-main (void)
+void test()
 {
   struct sha512_ctx ctx;
   char sum[64];
@@ -123,7 +126,8 @@ main (void)
 	}
 
       __sha512_init_ctx (&ctx);
-      for (int i = 0; tests[cnt].input[i] != '\0'; ++i)
+      int i;
+      for ( i = 0; tests[cnt].input[i] != '\0'; ++i)
 	__sha512_process_bytes (&tests[cnt].input[i], 1, &ctx);
       __sha512_finish_ctx (&ctx, sum);
       if (memcmp (tests[cnt].result, sum, 64) != 0)
@@ -142,7 +146,8 @@ main (void)
   char buf[1000];
   memset (buf, 'a', sizeof (buf));
   __sha512_init_ctx (&ctx);
-  for (int i = 0; i < 1000; ++i)
+  int i;
+  for (i = 0; i < 1000; ++i)
     __sha512_process_bytes (buf, sizeof (buf), &ctx);
   __sha512_finish_ctx (&ctx, sum);
   static const char expected[64] =
@@ -162,7 +167,7 @@ main (void)
   
   //start ctest
 
-  for (int i = 0; i < nctests; ++i)
+  for (i = 0; i < nctests; ++i)
     {
       char *cp = __sha512_crypt(ctests[i].input, ctests[i].salt);
 
@@ -178,5 +183,56 @@ main (void)
       }
     }
 
-  return result;
+}
+
+int main(int argc, const char** argv)
+{
+	if(argc == 2 && strcmp(argv[1],"test") == 0)
+	{
+		test();
+		exit(0);
+	}
+	char *crypt = "$6$Y72m9KTGYlKZl6zA$S4.P9s8hkiUflpkZoGpjikGvvOLSV7iFf5DEuqMHZobaAB/lvz4cYl5JyEK2aB4k6Xu/5s0NNOaXa1ua6wqMc1";
+	char *salt = "$6$Y72m9KTGYlKZl6zA";
+	char passchars[] = "321ob";
+	char pass[50];
+	int chrs[7] = {-1,-1,-1,-1,-1,-1,-1};
+	int numchars = 5;
+	int passlen = 1;
+	clock_t start, finish;
+	start = clock();
+	int i;
+	for(i = 0; i < 78125; ++i)
+	{
+		int j;
+		for(j = 0; j <= 7; ++j)
+		{
+			if(chrs[j] < (numchars - 1))
+			{	
+				chrs[j] += 1;
+				pass[j] = passchars[chrs[j]];
+				break;
+			}
+			else
+			{
+				chrs[j] = 0;
+				pass[j] = passchars[chrs[j]];
+				passlen += 1;
+			
+			}
+		}
+		pass[passlen] ='\0';
+		printf("trying: %s\n",pass);
+		char *result = __sha512_crypt(pass, salt);
+		if(strcmp(result, crypt) == 0)
+		{
+			finish = clock();
+			int time = (finish - start)/CLOCKS_PER_SEC;
+			printf("password: %s, it took %d hashes in %d seconds\n", pass, i, time);
+			printf("averaged %f c/s\n", (float)i / time);
+			exit(0);
+		}
+		
+	}
+        return 0;
 }
