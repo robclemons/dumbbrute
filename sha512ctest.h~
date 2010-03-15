@@ -1,6 +1,0 @@
-#ifndef _SHA512CTEST_H
-#define _SHA512CTEST_H 
-
-static int do_test();
-
-#endif

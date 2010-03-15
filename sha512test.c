@@ -1,6 +1,5 @@
+#include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
-#include <time.h>
 #include "sha512.h"
 
 
@@ -185,51 +184,3 @@ void test()
 
 }
 
-int main(int argc, const char** argv)
-{
-	if(argc == 2 && strcmp(argv[1],"test") == 0)
-		test();
-	char *crypt = "$6$Y72m9KTGYlKZl6zA$S4.P9s8hkiUflpkZoGpjikGvvOLSV7iFf5DEuqMHZobaAB/lvz4cYl5JyEK2aB4k6Xu/5s0NNOaXa1ua6wqMc1";
-	char *salt = "$6$Y72m9KTGYlKZl6zA";
-	char passchars[5] = "bo123";
-	char pass[50];
-	int chrs[7] = {-1,-1,-1,-1,-1,-1,-1};
-	int numchars = 5;
-	int passlen = 1;
-	clock_t start, finish;
-	start = clock();
-	int i;
-	for(i = 0; i < 78125; i++)
-	{
-		int j;
-		for(j = 0; j <= 7; j++)
-		{
-			if(chrs[j] < (numchars - 1))
-			{	
-				chrs[j] += 1;
-				pass[j] = passchars[chrs[j]];
-				break;
-			}
-			else
-			{
-				chrs[j] = 0;
-				pass[j] = passchars[chrs[j]];
-				passlen += 1;
-			
-			}
-		}
-		pass[passlen] ='\0';
-//		printf("trying: %s\n",pass);
-		char *result = __sha512_crypt(pass, salt);
-		if(strcmp(result, crypt) == 0)
-		{
-			finish = clock();
-			int time = (finish - start)/CLOCKS_PER_SEC;
-			printf("password: %s, it took %d hashes in %d seconds\n", pass, i, time);
-			printf("averaged %f c/s\n", (float)i / time);
-			exit(0);
-		}
-		
-	}
-        return 0;
-}
