@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "sha512.h"
 
 
@@ -181,6 +182,7 @@ void test()
       	printf("test %d in c-test passed\n", i);
       }
     }
+    exit(0);
 
 }
 
