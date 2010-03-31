@@ -32,7 +32,8 @@
 #define MAX_PASS_LEN 8
 #define DEFAULT_NUM_PROCESSES 2
 #define MAX_THREADS 8
-
+int found = 0;
+int passwordNum = 0;
 struct args
 {
 	char charset[64];
@@ -74,37 +75,43 @@ void* brute(void *myArgs)
 //	printf("%d\n", pArgs->pNum);
 	for(count = pArgs->pNum; count < pow(pArgs->charsetLen, MAX_PASS_LEN); count += pArgs->numProcs)
 	{
-		int total = count;	
-		int passIndex = 0;
-		int i;
-		for(i = 1;pow(pArgs->charsetLen,i) < total;++i)
+		if(!found)
 		{
-			total -= pow(pArgs->charsetLen,i);
-		}
-		--total;
+			int total = count;	
+			int passIndex = 0;
+			int i;
+			for(i = 1;pow(pArgs->charsetLen,i) < total;++i)
+			{
+				total -= pow(pArgs->charsetLen,i);
+			}
+			--total;
 
-		int j;
-		int tmp = total;
-		for(j = i; j > 1; --j)
-		{
-			tmp = total / pow(pArgs->charsetLen,j-1);
-			pass[passIndex] = pArgs->charset[tmp];
-			total -= tmp * pow(pArgs->charsetLen, j-1);
+			int j;
+			int tmp = total;
+			for(j = i; j > 1; --j)
+			{
+				tmp = total / pow(pArgs->charsetLen,j-1);
+				pass[passIndex] = pArgs->charset[tmp];
+				total -= tmp * pow(pArgs->charsetLen, j-1);
+				++passIndex;
+			}
+			int chrIndex = total % pArgs->charsetLen;
+			pass[passIndex] = pArgs->charset[chrIndex];
 			++passIndex;
-		}
-		int chrIndex = total % pArgs->charsetLen;
-		pass[passIndex] = pArgs->charset[chrIndex];
-		++passIndex;
-		pass[passIndex] ='\0';
-//		printf("trying: %s\n",pass);
-		char *result = __sha512_crypt(pass, pArgs->salt);
-		if(strcmp(result, pArgs->crypt) == 0)
-		{
-		
-			printf("password: %s, it took %d hashes\n", pass, count);
+			pass[passIndex] ='\0';
+	//		printf("trying: %s\n",pass);
+			char *result = __sha512_crypt(pass, pArgs->salt);
+			if(strcmp(result, pArgs->crypt) == 0)
+			{
+				passwordNum = count;
+				found = 1;
+				printf("password: %s, it took %d hashes\n", pass, count);
 
+			}
+		//	printf("%d\n", count);
 		}
-	//	printf("%d\n", count);
+		else
+			pthread_exit(NULL);
 	}
 
 
@@ -144,7 +151,7 @@ int main(int argc, const char** argv)
 	pArgs.charsetLen = getCharset(pArgs.charset);
 	time_t start, finish;
 	start = time(NULL);
-	int found = 0;
+	int tmp;
 	int i;
 	pthread_t threadID[MAX_THREADS];
 	struct args threadArgs[MAX_THREADS];
@@ -152,20 +159,20 @@ int main(int argc, const char** argv)
 	{
 		threadArgs[i] = pArgs;
 		threadArgs[i].pNum = i;
-		found = pthread_create(&threadID[i], NULL, brute, (void*)&threadArgs[i]);
+		tmp = pthread_create(&threadID[i], NULL, brute, (void*)&threadArgs[i]);
 	}
 	for(i = 1; i <= pArgs.numProcs; ++i)
 	{
 		
-		found = pthread_join(threadID[i], NULL);
+		tmp = pthread_join(threadID[i], NULL);
 	}
 	if(found != 0)
 	{
 		finish = time(NULL);
 		int time = difftime(finish, start);
 		printf("It took %d seconds\n",time);
-		printf("averaged %f c/s\n", (float)found / time);
-		kill(0, SIGKILL);
+		printf("averaged %f c/s\n", (float)passwordNum / time);
+
 	}
         return 0;
 }
