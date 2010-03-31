@@ -28,7 +28,6 @@
 #include <errno.h>
 #include "sha512test.h"
 
-#define NUM_CHARS 9
 #define MAX_PASS_LEN 8
 #define DEFAULT_NUM_PROCESSES 2
 
@@ -38,20 +37,34 @@ void usage()
 	printf("%s", usageText);
 	
 }
+
+int getCharset(char charset[64])
+{
+	FILE *charsetFile;
+	charsetFile = fopen("charset","r");
+	if(errno != 0)
+	{
+		printf("charset file is missing\n");
+		exit(0);
+	}
+	fscanf(charsetFile, "%s", charset);
+	fclose(charsetFile);
+	return strlen(charset);
+}	
 		
-int brute(int pNum, char *salt, char *crypt, char *passchars, int numProcs)
+int brute(int pNum, char *salt, char *crypt, char *charset, int charsetLen, int numProcs)
 {
 	char pass[25];
 	int count;
 //	printf("%d\n", pNum);
-	for(count = pNum; count < pow(NUM_CHARS, MAX_PASS_LEN); count += numProcs)
+	for(count = pNum; count < pow(charsetLen, MAX_PASS_LEN); count += numProcs)
 	{
 		int total = count;	
 		int passIndex = 0;
 		int i;
-		for(i = 1;pow(NUM_CHARS,i) < total;++i)
+		for(i = 1;pow(charsetLen,i) < total;++i)
 		{
-			total -= pow(NUM_CHARS,i);
+			total -= pow(charsetLen,i);
 		}
 		--total;
 
@@ -59,13 +72,13 @@ int brute(int pNum, char *salt, char *crypt, char *passchars, int numProcs)
 		int tmp = total;
 		for(j = i; j > 1; --j)
 		{
-			tmp = total / pow(NUM_CHARS,j-1);
-			pass[passIndex] = passchars[tmp];
-			total -= tmp * pow(NUM_CHARS, j-1);
+			tmp = total / pow(charsetLen,j-1);
+			pass[passIndex] = charset[tmp];
+			total -= tmp * pow(charsetLen, j-1);
 			++passIndex;
 		}
-		int chrIndex = total % NUM_CHARS;
-		pass[passIndex] = passchars[chrIndex];
+		int chrIndex = total % charsetLen;
+		pass[passIndex] = charset[chrIndex];
 		++passIndex;
 		pass[passIndex] ='\0';
 //		printf("trying: %s\n",pass);
@@ -113,7 +126,8 @@ int main(int argc, const char** argv)
 		printf("Unsopported hash type\n");
 		exit(0);
 	}
-	char passchars[NUM_CHARS] = "bcdmno123";
+	char charset[64];
+	int charsetLen = getCharset(charset);
 	time_t start, finish;
 	start = time(NULL);
 	int found = 0;
@@ -125,7 +139,7 @@ int main(int argc, const char** argv)
 		{
 		pid = fork();
 		if(pid == 0)
-			found = brute(i, salt, crypt, passchars, numProcs);
+			found = brute(i, salt, crypt, charset, charsetLen, numProcs);
 		}
 	}
 	if(pid > 0)
