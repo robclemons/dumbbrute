@@ -26,10 +26,22 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <pthread.h>
 #include "sha512test.h"
 
 #define MAX_PASS_LEN 8
 #define DEFAULT_NUM_PROCESSES 2
+#define MAX_THREADS 8
+
+struct args
+{
+	char charset[64];
+	int charsetLen;
+	char crypt[107];
+	char salt[20];
+	int pNum;
+	int numProcs;
+};
 
 void usage()
 {
@@ -52,19 +64,22 @@ int getCharset(char charset[64])
 	return strlen(charset);
 }	
 		
-int brute(int pNum, char *salt, char *crypt, char *charset, int charsetLen, int numProcs)
+
+void* brute(void *myArgs)
 {
+	struct args *pArgs;
+	pArgs = (struct args *)myArgs;
 	char pass[25];
 	int count;
-//	printf("%d\n", pNum);
-	for(count = pNum; count < pow(charsetLen, MAX_PASS_LEN); count += numProcs)
+//	printf("%d\n", pArgs->pNum);
+	for(count = pArgs->pNum; count < pow(pArgs->charsetLen, MAX_PASS_LEN); count += pArgs->numProcs)
 	{
 		int total = count;	
 		int passIndex = 0;
 		int i;
-		for(i = 1;pow(charsetLen,i) < total;++i)
+		for(i = 1;pow(pArgs->charsetLen,i) < total;++i)
 		{
-			total -= pow(charsetLen,i);
+			total -= pow(pArgs->charsetLen,i);
 		}
 		--total;
 
@@ -72,36 +87,37 @@ int brute(int pNum, char *salt, char *crypt, char *charset, int charsetLen, int 
 		int tmp = total;
 		for(j = i; j > 1; --j)
 		{
-			tmp = total / pow(charsetLen,j-1);
-			pass[passIndex] = charset[tmp];
-			total -= tmp * pow(charsetLen, j-1);
+			tmp = total / pow(pArgs->charsetLen,j-1);
+			pass[passIndex] = pArgs->charset[tmp];
+			total -= tmp * pow(pArgs->charsetLen, j-1);
 			++passIndex;
 		}
-		int chrIndex = total % charsetLen;
-		pass[passIndex] = charset[chrIndex];
+		int chrIndex = total % pArgs->charsetLen;
+		pass[passIndex] = pArgs->charset[chrIndex];
 		++passIndex;
 		pass[passIndex] ='\0';
 //		printf("trying: %s\n",pass);
-		char *result = __sha512_crypt(pass, salt);
-		if(strcmp(result, crypt) == 0)
+		char *result = __sha512_crypt(pass, pArgs->salt);
+		if(strcmp(result, pArgs->crypt) == 0)
 		{
 		
 			printf("password: %s, it took %d hashes\n", pass, count);
-			return count;
+
 		}
 	//	printf("%d\n", count);
 	}
-	return 0;
+
 
 }
 int main(int argc, const char** argv)
 {
-	int numProcs = DEFAULT_NUM_PROCESSES;
+	struct args pArgs;
+	pArgs.numProcs = DEFAULT_NUM_PROCESSES;
 	if(argc == 2 && strcmp(argv[1],"test") == 0)
 		test();
 	else if(argc == 4 && strcmp(argv[1],"-p") == 0)
 	{
-		numProcs = atoi(argv[2]);
+		pArgs.numProcs = atoi(argv[2]);
 	}
 	FILE *hashFile;
 	hashFile = fopen(argv[argc-1],"r");
@@ -111,39 +127,38 @@ int main(int argc, const char** argv)
 		usage();
 		exit(0);
 	}
-	char crypt[107];
-	fscanf(hashFile, "%s", crypt);
+	
+	fscanf(hashFile, "%s", pArgs.crypt);
 	fclose(hashFile);
-	printf("%s\n", crypt);
-	char salt[20];
-	if(crypt[1] == '6')
+	printf("%s\n", pArgs.crypt);
+	if(pArgs.crypt[1] == '6')
 	{
-		strncpy(salt,crypt, 19);
-		salt[19] = "\n";
+		strncpy(pArgs.salt,pArgs.crypt, 19);
+		pArgs.salt[19] = "\n";
 	}
 	else
 	{
 		printf("Unsopported hash type\n");
 		exit(0);
 	}
-	char charset[64];
-	int charsetLen = getCharset(charset);
+	pArgs.charsetLen = getCharset(pArgs.charset);
 	time_t start, finish;
 	start = time(NULL);
 	int found = 0;
 	int i;
-	pid_t pid = 1;
-	for(i = 1; i <= numProcs; ++i)
+	pthread_t threadID[MAX_THREADS];
+	struct args threadArgs[MAX_THREADS];
+	for(i = 1; i <= pArgs.numProcs; ++i)
 	{
-		if(pid > 0)
-		{
-		pid = fork();
-		if(pid == 0)
-			found = brute(i, salt, crypt, charset, charsetLen, numProcs);
-		}
+		threadArgs[i] = pArgs;
+		threadArgs[i].pNum = i;
+		found = pthread_create(&threadID[i], NULL, brute, (void*)&threadArgs[i]);
 	}
-	if(pid > 0)
-		wait();
+	for(i = 1; i <= pArgs.numProcs; ++i)
+	{
+		
+		found = pthread_join(threadID[i], NULL);
+	}
 	if(found != 0)
 	{
 		finish = time(NULL);
