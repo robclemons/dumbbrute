@@ -31,8 +31,10 @@
 
 #define MAX_PASS_LEN 8
 #define MAX_THREADS 129
-int found = 0;
-int passwordNum = 0;
+
+int found = 0; //set to 1 when password is found
+int passwordNum = 0;//stores the number corresponding to the hashes password
+
 struct args
 {
 	char charset[64];
@@ -64,14 +66,17 @@ int getCharset(char charset[64])
 	return strlen(charset);
 }	
 		
-
+/********************************************
+brute is the function that each thread executes
+it accepts an args structure and modifies the gloabal
+variables "found" and "passwordNum" if it finds the original password
+*********************************************/
 void* brute(void *myArgs)
 {
 	struct args *pArgs;
 	pArgs = (struct args *)myArgs;
 	char pass[25];
 	int count;
-//	printf("%d\n", pArgs->pNum);
 	for(count = pArgs->pNum; count < pow(pArgs->charsetLen, MAX_PASS_LEN); count += pArgs->numProcs)
 	{
 		if(!found)
@@ -98,16 +103,14 @@ void* brute(void *myArgs)
 			pass[passIndex] = pArgs->charset[chrIndex];
 			++passIndex;
 			pass[passIndex] ='\0';
-	//		printf("trying: %s\n",pass);
 			char *result = __sha512_crypt(pass, pArgs->salt);
 			if(strcmp(result, pArgs->crypt) == 0)
 			{
 				passwordNum = count;
-				found = count;
+				found = 1;
 				printf("password: %s, it took %d hashes\n", pass, count);
 
 			}
-		//	printf("%d\n", count);
 		}
 		else
 			pthread_exit(NULL);
@@ -118,7 +121,9 @@ void* brute(void *myArgs)
 int main(int argc, const char** argv)
 {
 	struct args pArgs;
-
+	/********************************************
+	Get file and user inputs and do a little bit of validation
+	*********************************************/
 	if(argc == 2 && strcmp(argv[1],"test") == 0)
 		test();
 	
@@ -148,7 +153,7 @@ int main(int argc, const char** argv)
 	
 	fscanf(hashFile, "%s", pArgs.crypt);
 	fclose(hashFile);
-//	printf("%s\n", pArgs.crypt);
+
 	if(pArgs.crypt[1] == '6')
 	{
 		strncpy(pArgs.salt,pArgs.crypt, 19);
@@ -160,9 +165,13 @@ int main(int argc, const char** argv)
 		exit(0);
 	}
 	pArgs.charsetLen = getCharset(pArgs.charset);
+	
+	/*******************************************************
+	Prepare and launch threads
+	*******************************************************/
 	time_t start, finish;
 	start = time(NULL);
-	int tmp;
+	int failed = 0;
 	int i;
 	pthread_t threadID[MAX_THREADS];
 	struct args threadArgs[MAX_THREADS];
@@ -170,19 +179,36 @@ int main(int argc, const char** argv)
 	{
 		threadArgs[i] = pArgs;
 		threadArgs[i].pNum = i;
-		tmp = pthread_create(&threadID[i], NULL, brute, (void*)&threadArgs[i]);
+		failed = pthread_create(&threadID[i], NULL, brute, (void*)&threadArgs[i]);
+		if(failed)
+		{
+			printf("Failed to create thread, error %d\n", failed);
+			exit(0);
+		}
 	}
+	
+	/*************************************************
+	Join child threads to parent thread so that main
+	waits until all the children have exited
+	*************************************************/
 	for(i = 1; i <= pArgs.numProcs; ++i)
 	{
 		
-		tmp = pthread_join(threadID[i], NULL);
+		failed = pthread_join(threadID[i], NULL);
+		if(failed)
+		{
+			printf("Failed to join thread, error %d\n", failed);
+			exit(0);
+		}
+
 	}
-	if(found != 0)
+	
+	if(found)
 	{
 		finish = time(NULL);
 		int time = difftime(finish, start);
 		printf("It took %d seconds\n",time);
-		printf("averaged %f c/s\n", (float)found / time);
+		printf("averaged %f c/s\n", (float)passwordNum / time);
 
 	}
         return 0;
