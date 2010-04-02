@@ -30,7 +30,6 @@
 #include "sha512test.h"
 
 #define MAX_PASS_LEN 8
-#define DEFAULT_NUM_PROCESSES 8
 #define MAX_THREADS 129
 int found = 0;
 int passwordNum = 0;
@@ -46,7 +45,7 @@ struct args
 
 void usage()
 {
-	char *usageText = "Usage of dumbbrute:\n\n  dumbbrute <filename> where filename is the file with only the hash in it\n\n  Use -p to set the number of processes to spawn:\n\n  dumbbrute -p 2 <filename>\n\n";
+	char *usageText = "Usage of dumbbrute:\n\n  dumbbrute -t <# threads> <filename>\n\n  <filename> is the file with only the hash in it\n  <# threads> is the number of threads you want to create\n\n  The -t arguement folowed by an integer is required.\n\n  example:\n\n  dumbbrute -t 4 ./myhash\n\n";
 	printf("%s", usageText);
 	
 }
@@ -123,7 +122,20 @@ int main(int argc, const char** argv)
 	if(argc == 2 && strcmp(argv[1],"test") == 0)
 		test();
 	
+	if(strcmp(argv[1], "-t") != 0)
+	{
+		printf("Invalid arguements\n\n");
+		usage();
+		exit(0);
+	}
+	
 	pArgs.numProcs = atoi(argv[2]);
+	if(pArgs.numProcs <= 0)
+	{
+		printf("Invalid number of threads\n\n");
+		usage();
+		exit(0);
+	}
 
 	FILE *hashFile;
 	hashFile = fopen(argv[argc-1],"r");
