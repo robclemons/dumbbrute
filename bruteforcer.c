@@ -30,8 +30,8 @@
 #include "sha512test.h"
 
 #define MAX_PASS_LEN 8
-#define DEFAULT_NUM_PROCESSES 2
-#define MAX_THREADS 8
+#define DEFAULT_NUM_PROCESSES 8
+#define MAX_THREADS 129
 int found = 0;
 int passwordNum = 0;
 struct args
@@ -104,7 +104,7 @@ void* brute(void *myArgs)
 			if(strcmp(result, pArgs->crypt) == 0)
 			{
 				passwordNum = count;
-				found = 1;
+				found = count;
 				printf("password: %s, it took %d hashes\n", pass, count);
 
 			}
@@ -119,13 +119,12 @@ void* brute(void *myArgs)
 int main(int argc, const char** argv)
 {
 	struct args pArgs;
-	pArgs.numProcs = DEFAULT_NUM_PROCESSES;
+
 	if(argc == 2 && strcmp(argv[1],"test") == 0)
 		test();
-	else if(argc == 4 && strcmp(argv[1],"-p") == 0)
-	{
-		pArgs.numProcs = atoi(argv[2]);
-	}
+	
+	pArgs.numProcs = atoi(argv[2]);
+
 	FILE *hashFile;
 	hashFile = fopen(argv[argc-1],"r");
 	if(errno != 0)
@@ -137,7 +136,7 @@ int main(int argc, const char** argv)
 	
 	fscanf(hashFile, "%s", pArgs.crypt);
 	fclose(hashFile);
-	printf("%s\n", pArgs.crypt);
+//	printf("%s\n", pArgs.crypt);
 	if(pArgs.crypt[1] == '6')
 	{
 		strncpy(pArgs.salt,pArgs.crypt, 19);
@@ -171,7 +170,7 @@ int main(int argc, const char** argv)
 		finish = time(NULL);
 		int time = difftime(finish, start);
 		printf("It took %d seconds\n",time);
-		printf("averaged %f c/s\n", (float)passwordNum / time);
+		printf("averaged %f c/s\n", (float)found / time);
 
 	}
         return 0;
