@@ -43,6 +43,7 @@ struct args
 	char salt[20];
 	int pNum;
 	int numProcs;
+	unsigned long long possiblePasswords;
 };
 
 void usage()
@@ -50,6 +51,16 @@ void usage()
 	char *usageText = "Usage of dumbbrute:\n\n  dumbbrute -t <# threads> <filename>\n\n  <filename> is the file with only the hash in it\n  <# threads> is the number of threads you want to create\n\n  The -t arguement folowed by an integer is required.\n\n  example:\n\n  dumbbrute -t 4 ./myhash\n\n";
 	printf("%s", usageText);
 	
+}
+
+unsigned long long getPossiblePasswords(int charsetLen)
+{
+	int i;
+	unsigned long long possiblePasswords = 0;
+	for(i = 1; i <= MAX_PASS_LEN; ++i)
+		possiblePasswords = pow(charsetLen, i);
+		
+	return possiblePasswords;
 }
 
 int getCharset(char charset[64])
@@ -77,7 +88,7 @@ void* brute(void *myArgs)
 	pArgs = (struct args *)myArgs;
 	char pass[25];
 	int count;
-	for(count = pArgs->pNum; count < pow(pArgs->charsetLen, MAX_PASS_LEN); count += pArgs->numProcs)
+	for(count = pArgs->pNum; count < pArgs->possiblePasswords; count += pArgs->numProcs)
 	{
 		if(!found)
 		{
@@ -165,6 +176,7 @@ int main(int argc, const char** argv)
 		exit(0);
 	}
 	pArgs.charsetLen = getCharset(pArgs.charset);
+	pArgs.possiblePasswords = getPossiblePasswords(pArgs.charsetLen);
 	
 	/*******************************************************
 	Prepare and launch threads
