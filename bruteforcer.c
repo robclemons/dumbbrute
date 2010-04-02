@@ -92,6 +92,10 @@ void* brute(void *myArgs)
 	{
 		if(!found)
 		{
+			/************************************************
+			Here we convert an integer into a unique password
+			This simplifies parallelizing 
+			************************************************/
 			int total = count;	
 			int passIndex = 0;
 			int i;
@@ -114,6 +118,10 @@ void* brute(void *myArgs)
 			pass[passIndex] = pArgs->charset[chrIndex];
 			++passIndex;
 			pass[passIndex] ='\0';
+			
+			/**********************************************
+			Finally we hash the password with th given salt
+			***********************************************/
 			char *result = __sha512_crypt(pass, pArgs->salt);
 			if(strcmp(result, pArgs->crypt) == 0)
 			{
@@ -129,6 +137,7 @@ void* brute(void *myArgs)
 
 
 }
+
 int main(int argc, const char** argv)
 {
 	struct args pArgs;
