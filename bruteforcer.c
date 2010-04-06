@@ -206,6 +206,7 @@ int main(int argc, const char** argv)
 			printf("Failed to create thread, error %d\n", failed);
 			exit(0);
 		}
+		usleep(50);
 	}
 	
 	/*************************************************

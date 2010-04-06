@@ -110,7 +110,7 @@ __sha512_crypt_r (key, salt, buffer, buflen)
 
   salt_len = MIN (strcspn (salt, "$"), SALT_LEN_MAX);
   key_len = strlen (key);
-
+  /*
   if ((key - (char *) 0) % __alignof__ (uint64_t) != 0)
     {
       char *tmp = (char *) alloca (key_len + __alignof__ (uint64_t));
@@ -130,7 +130,7 @@ __sha512_crypt_r (key, salt, buffer, buflen)
 		salt, salt_len);
       assert ((salt - (char *) 0) % __alignof__ (uint64_t) == 0);
     }
-
+  */
 
   struct sha512_ctx ctx;
   struct sha512_ctx alt_ctx;
@@ -301,7 +301,7 @@ __sha512_crypt_r (key, salt, buffer, buflen)
   b64_from_24bit (alt_result[62], alt_result[20], alt_result[41], 4);
   b64_from_24bit (0, 0, alt_result[63], 2);
 
-  if (buflen <= 0)
+/*  if (buflen <= 0)
     {
 //      __set_errno (ERANGE);
       buffer = NULL;
@@ -312,7 +312,7 @@ __sha512_crypt_r (key, salt, buffer, buflen)
   /* Clear the buffer for the intermediate result so that people
      attaching to processes or reading core dumps cannot get any
      information.  We do it in this way to clear correct_words[]
-     inside the SHA512 implementation as well.  */
+     inside the SHA512 implementation as well.  
 
   memset (temp_result, '\0', sizeof (temp_result));
   memset (p_bytes, '\0', key_len);
@@ -321,7 +321,7 @@ __sha512_crypt_r (key, salt, buffer, buflen)
     memset (copied_key, '\0', key_len);
   if (copied_salt != NULL)
     memset (copied_salt, '\0', salt_len);
-
+*/
   return buffer;
 }
 
