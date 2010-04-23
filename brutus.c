@@ -143,18 +143,13 @@ PyObject *Brute_done(PyObject *self, PyObject *args) {
 	pthread_mutex_lock(&(b->done_mutex));
 
 	// check if we're done
-	if(b->done == BRUTE_DONE)
-		retval = Py_BuildValue("s", b->password);
+	retval = Py_BuildValue("(i, s)", b->done, b->password);
 
 	// unlock the mutex
 	pthread_mutex_unlock(&(b->done_mutex));
 
 	// go home
-	if(retval) {
-		return retval;
-	} else {
-		Py_RETURN_FALSE;
-	}
+	return retval;
 }
 
 PyObject *Brute_benchmark(PyObject *self, PyObject *args) {

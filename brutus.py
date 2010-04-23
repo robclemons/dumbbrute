@@ -18,14 +18,8 @@ from math import ceil
 from xmlrpc.client import ServerProxy
 from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.server import SimpleXMLRPCRequestHandler
-from socketserver import ThreadingMixIn
 
 from brutus import Brute
-
-
-class BruteServer(ThreadingMixIn, SimpleXMLRPCServer):
-	pass
-
 
 class Bruteforcer:
 
@@ -59,33 +53,31 @@ class Bruteforcer:
 	def kill(self, job):
 		return self.brutes[job].kill()
 		
-		
-	
-def numPossiblePasswords(charset, maximum_password_length):
+
+def num_passwords(charset, maximum_password_length):
 	possibleNum = 0
-	for each in range(1,maximum_password_length):
-		possibleNum += len(charset) ** each
+	for each in range(1, maximum_password_length+1):
+		possibleNum += (len(charset) ** each)
 	return possibleNum
 	
 def start_server():
 	host = ''
 	port = 8000
 	done = False
-	server = BruteServer((host, port), SimpleXMLRPCRequestHandler, allow_none=True)
+	server = SimpleXMLRPCServer((host, port), SimpleXMLRPCRequestHandler, allow_none=True)
 	bruteforcer = Bruteforcer()
 	server.register_instance(bruteforcer)
 	server.register_function(cpu_count)
 	server.serve_forever()
 
 def start_local(num_threads, max_pw_len, charset, hash_value):
-	print("here")
 	start_new_thread(start_server, tuple())
 	proxy = ServerProxy("http://localhost:8000")
 	if not proxy.heartbeat():
 		raise Exception("Could not connect to local server")
-	start = 1
+	start = 0
 	jobs = []
-	end = numPossiblePasswords(charset, max_pw_len)
+	end = num_passwords(charset, max_pw_len)
 	hashes_per_brute = ceil((end - start)/num_threads)
 	for i in range(num_threads):
 		tmp = start
@@ -94,11 +86,12 @@ def start_local(num_threads, max_pw_len, charset, hash_value):
 	all_done = False
 	while not all_done:
 		sleep(5)
+		all_done = True
 		for job in jobs:
 			result = proxy.done(job)
-			if result == False:
+			if not result[0]:
 				all_done = False
-			elif result != '':
+			elif len(result[1]):
 				return result
 	return False
 	
@@ -140,10 +133,9 @@ if __name__ == "__main__":
 		hash_value = argv[4]
 		result = start_local(num_threads, max_pass_len, charset, hash_value)
 		if result:
-			print(result)
+			print(result[1])
 		else:
-			print("The password was not found")
-			
+			print("The password was not found")		
 	elif len(argv) == 6:
 		charset = argv[1]
 		ip_list = open(argv[2]).read().split()
