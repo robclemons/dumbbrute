@@ -3,7 +3,7 @@
 """
 dumbbrute.py
 
-Written by Geremy Condra and Robbie Clemons
+Written by Robbie Clemons and Geremy Condra
 Licensed under GPLv3
 Released 16 April 2010
 """
