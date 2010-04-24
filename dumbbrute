@@ -13,6 +13,7 @@ from subprocess import getstatusoutput as run
 from multiprocessing import cpu_count
 from _thread import start_new_thread
 from time import time, sleep
+from timeit import timeit
 from math import ceil
 
 import socket
@@ -31,7 +32,14 @@ class Bruteforcer:
 
 	def version():
 		return "0"
-		
+
+	def benchmark(self):
+		password = 'abcdefghijklmnop'
+		salt = '$6$12345678901234567890$'
+		setup = "from crypt import crypt"
+		results = timeit("crypt('%s', '%s')" % (salt, password), setup=setup, number=100)
+		return round(1/results)
+
 	def bruteforce(self, start, end, charset, hash_value):
 		# get the salt from the hash
 		if "rounds" in hash_value:
@@ -47,9 +55,9 @@ class Bruteforcer:
 		
 	def done(self, job):
 		return self.brutes[job].done()
-		
-	def benchmark(self, job):
-		return self.brutes[job].benchmark()
+
+	def history(self, job):
+		return self.brutes[job].history()
 		
 	def kill(self, job):
 		return self.brutes[job].kill()
@@ -130,18 +138,22 @@ def start_master(charset, max_pw_len, nodefile, hash_value):
 			raise Exception("Could not connect to remote server %s" % proxy)
 			
 	# get the count of cpus in the cluster
-	cpus_per_machine = {proxy: proxy.cpu_count() for proxy in proxy_list}
-	total_cpus = sum(cpus_per_machine.values())
+	threads_per_proxy = {proxy: proxy.cpu_count() for proxy in proxy_list}
+	compute_units_per_proxy = {proxy: proxy.benchmark() for proxy in proxy_list}
+	total_compute_units = sum((threads_per_proxy[p] * compute_units_per_proxy[p] for p in proxy_list))
+	
 	# get the number of passwords and passwords/thread
 	start = 0
 	end = num_passwords(charset, max_pw_len)
-	hashes_per_thread = ceil(end/total_cpus)
+	hashes_per_compute_unit = ceil(end/total_compute_units)
 	
 	# now start the bruteforcing
 	results = []
 	for proxy in proxy_list:
-		proxy_capacity = cpus_per_machine[proxy]
-		for i in range(proxy_capacity):
+		num_threads = threads_per_proxy[proxy]
+		compute_units_per_thread = compute_units_per_proxy[proxy]
+		hashes_per_thread = hashes_per_compute_unit * compute_units_per_thread
+		for i in range(num_threads):
 			tmp = start
 			start += hashes_per_thread
 			job_id = proxy.bruteforce(tmp, start, charset, hash_value)

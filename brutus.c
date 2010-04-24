@@ -152,7 +152,7 @@ PyObject *Brute_done(PyObject *self, PyObject *args) {
 	return retval;
 }
 
-PyObject *Brute_benchmark(PyObject *self, PyObject *args) {
+PyObject *Brute_diagnostic(PyObject *self, PyObject *args) {
 	// extract the brute object
 	Brute *b = (Brute *)self;
 	if(b->done != BRUTE_DONE) {
@@ -181,7 +181,7 @@ void Brute_dealloc(Brute *self) {
 PyMethodDef Brute_methods[] = {
 	{"done", (PyCFunction)Brute_done, METH_VARARGS, "Checks to see if the Brute is done, and returns a password if it found it."},
 	{"kill", (PyCFunction)Brute_kill, METH_VARARGS, "Ends the brute's life"},
-	{"benchmark", (PyCFunction)Brute_benchmark, METH_VARARGS, "Tests to see how fast the brute is"},
+	{"diagnostic", (PyCFunction)Brute_diagnostic, METH_VARARGS, "Tests to see how fast the brute is"},
 	{NULL, NULL}
 };
 

@@ -82,7 +82,7 @@ int Brute_init(Brute *self, PyObject *args);
 PyObject *Brute_done(PyObject *self, PyObject *args);
 
 // returns the timing data for this run
-PyObject *Brute_benchmark(PyObject *self, PyObject *args);
+PyObject *Brute_diagnostic(PyObject *self, PyObject *args);
 
 // END HIM
 PyObject *Brute_kill(PyObject *self, PyObject *args);
