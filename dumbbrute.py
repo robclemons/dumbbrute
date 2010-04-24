@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 """
-brutus.py
+dumbbrute.py
 
 Written by Geremy Condra and Robbie Clemons
 Licensed under GPLv3
@@ -12,9 +12,10 @@ from sys import argv
 from subprocess import getstatusoutput as run
 from multiprocessing import cpu_count
 from _thread import start_new_thread
-from time import sleep
+from time import time, sleep
 from math import ceil
 
+import socket
 from xmlrpc.client import ServerProxy
 from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.server import SimpleXMLRPCRequestHandler
@@ -59,6 +60,29 @@ def num_passwords(charset, maximum_password_length):
 	for each in range(1, maximum_password_length+1):
 		possibleNum += (len(charset) ** each)
 	return possibleNum
+	
+def discover_peers(port):
+	# courtesy of the wider internet. Thank you.
+	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	s.connect(('google.com', 0)) 
+	ip = s.getsockname()[0]
+	# now we split the ip to get the first 3 dotted quads
+	# and the last, which we (wrongly) assume to be on this
+	# side of our netmask.
+	peers = []
+	local_link = ".".join(ip.split(".")[:-1])
+	for i in range(256):
+		hostname = "http://%s.%s:%s" % (local_link, i, port)
+		start_new_thread(test_peer, (hostname, peers))
+	sleep(15)
+	return peers
+	
+def test_peer(hostname, peers):
+	try:
+		proxy = ServerProxy(hostname)
+		if proxy.heartbeat():
+			peers.append(hostname)
+	except Exception: return
 	
 def start_server(log_requests, port):
 	host = ''
@@ -138,7 +162,6 @@ def start_master(charset, max_pw_len, nodefile, hash_value):
 		proxy.kill(job_id)
 		
 	return password
-
 	
 if __name__ == "__main__":
 	
@@ -163,11 +186,18 @@ if __name__ == "__main__":
 		help="The port to contact the server on", default=8000)
 		
 	parser.add_option("-v", "--verbose", action="store_true", help="Emit server logs")
+	
+	parser.add_option("-d", "--discover", action="store_true", help="Discover all clients on the local segment")
 
 	opts, args = parser.parse_args()
 	
 	if not len(args):
 		start_server(opts.verbose, opts.port)
+		
+	if opts.discover:
+		f = open(args[0], "w")
+		nodefile = "\n".join(discover_peers(opts.port))
+		f.write(nodefile)
 
 	elif opts.nodes:
 		retval = start_master(opts.charset, opts.length, opts.nodes, args[0])
