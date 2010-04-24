@@ -10,6 +10,6 @@ setup(	name="brutus",
 		author="Geremy Condra",
 		author_email="debatem1@gmail.com",
 		url="geremycondra.net",
-		package_data={'':'test.py', '':'brutus.py'},
+		scripts=["dumbbrute"],
 		ext_modules=[brutus]
 )
