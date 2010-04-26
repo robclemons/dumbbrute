@@ -43,7 +43,6 @@ char *bruteforce(size_t start, size_t stop, size_t charset_len, char *charset, s
 	for(n=start; n <= stop; n++) {
 		pthread_testcancel();
 		char *pw = nth_password(n, charset_len, charset);
-		printf("%d: %s\n\n", n, pw);
 		if(strcmp(crypt(pw, salt), hash) == 0)
 			return pw;
 		free(pw);
