@@ -92,6 +92,19 @@ def test_peer(hostname, peers):
 			peers.append(hostname)
 	except Exception: return
 	
+def benchmark_peers(proxy_list):
+	benchmarks = {}
+	for proxy in proxy_list:
+		start_new_thread(benchmark_peer, (proxy, benchmarks))
+	sleep(30)
+	return benchmarks
+	
+def benchmark_peer(proxy, benchmarks):
+	try:
+		res = proxy.benchmark()
+		benchmarks[proxy] = res
+	except Exception: return
+	
 def start_server(log_requests, port):
 	host = ''
 	done = False
@@ -127,10 +140,9 @@ def start_local(num_threads, max_pw_len, charset, hash_value, port, verbose):
 				return result[1]
 	return False
 	
-def start_master(charset, max_pw_len, nodefile, hash_value):
+def start_master(charset, max_pw_len, addr_list, hash_value):
 	
 	# create the proxy list
-	addr_list = open(nodefile).readlines()
 	proxy_list = [ServerProxy(addr) for addr in addr_list]
 	# make sure all servers are alive
 	for proxy in proxy_list:
@@ -139,7 +151,7 @@ def start_master(charset, max_pw_len, nodefile, hash_value):
 			
 	# get the count of cpus in the cluster
 	threads_per_proxy = {proxy: proxy.cpu_count() for proxy in proxy_list}
-	compute_units_per_proxy = {proxy: proxy.benchmark() for proxy in proxy_list}
+	compute_units_per_proxy = benchmark_peers(proxy_list)
 	total_compute_units = sum((threads_per_proxy[p] * compute_units_per_proxy[p] for p in proxy_list))
 	
 	# get the number of passwords and passwords/thread
@@ -156,7 +168,6 @@ def start_master(charset, max_pw_len, nodefile, hash_value):
 		for i in range(num_threads):
 			tmp = start
 			start += hashes_per_thread
-			print(tmp, start, end)
 			job_id = proxy.bruteforce(tmp, start, charset, hash_value)
 			results.append((proxy, job_id))
 		
@@ -198,26 +209,37 @@ if __name__ == "__main__":
 	parser.add_option("-p", "--port", dest="port", type="int",
 		help="The port to contact the server on", default=8000)
 		
+	parser.add_option("-o", "--outfile", dest="outfile", type="string",
+		help="Specifies the file to output discovered nodes to", default="")
+		
 	parser.add_option("-v", "--verbose", action="store_true", help="Emit server logs")
 	
 	parser.add_option("-d", "--discover", action="store_true", help="Discover all clients on the local segment")
 
 	opts, args = parser.parse_args()
 	
-	if not len(args):
+	addr_list = []
+	
+	if not len(args) and not opts.discover:
 		start_server(opts.verbose, opts.port)
 		
 	if opts.discover:
-		f = open(args[0], "w")
-		nodefile = "\n".join(discover_peers(opts.port))
+		addr_list = discover_peers(opts.port)
+		
+	elif opts.nodes:
+		addr_list = open(opts.nodes).readlines()
+		
+	if opts.outfile and opts.discover:
+		f = open(opts.outfile, "w")
+		nodefile = "\n".join(addr_list)
 		f.write(nodefile)
 
-	elif opts.nodes:
-		retval = start_master(opts.charset, opts.length, opts.nodes, args[0])
+	if addr_list:
+		retval = start_master(opts.charset, opts.length, addr_list, args[0])
 		if retval: print(retval)
 		else: print("The password was not found")
 		
-	else:
+	elif not opts.nodes and not opts.discover and not opts.outfile:
 		result = start_local(opts.threads, opts.length, opts.charset, args[0], opts.port, opts.verbose)
 		if result: print(result)
 		else: print("The password was not found")
