@@ -14,7 +14,7 @@ from multiprocessing import cpu_count
 from _thread import start_new_thread
 from time import time, sleep
 from timeit import timeit
-from math import ceil
+from math import ceil, floor
 
 import socket
 from xmlrpc.client import ServerProxy
@@ -37,8 +37,8 @@ class Bruteforcer:
 		password = 'abcdefghijklmnop'
 		salt = '$6$12345678901234567890$'
 		setup = "from crypt import crypt"
-		results = timeit("crypt('%s', '%s')" % (salt, password), setup=setup, number=100)
-		return round(1/results)
+		results = timeit("crypt('%s', '%s')" % (password, salt), setup=setup, number=100)
+		return floor(100/results)
 
 	def bruteforce(self, start, end, charset, hash_value):
 		# get the salt from the hash
@@ -156,6 +156,7 @@ def start_master(charset, max_pw_len, nodefile, hash_value):
 		for i in range(num_threads):
 			tmp = start
 			start += hashes_per_thread
+			print(tmp, start, end)
 			job_id = proxy.bruteforce(tmp, start, charset, hash_value)
 			results.append((proxy, job_id))
 		
