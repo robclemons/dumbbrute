@@ -29,7 +29,8 @@ char *nth_password(size_t n, size_t charset_len, char *charset) {
 
 	// allocate space for output
 	char *output = (char*)malloc(sizeof(char) * (i+1));
-
+	bzero(output, i+1);
+	
 	// and fill it with the appropriate characters
 	for(j=0; j < i; j++)
 		output[j] = charset[nth_digit(n, j, charset_len)];
