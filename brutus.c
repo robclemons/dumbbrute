@@ -96,9 +96,11 @@ int Brute_init(Brute *self, PyObject *args) {
 	const char *charset;
 	const char *hash;
 	const char *salt;
-	if (!PyArg_ParseTuple(args, "lls#s#s#",
-					&(self->start), 
-					&(self->stop),
+	PyObject *start;
+	PyObject *end;
+	if (!PyArg_ParseTuple(args, "OOs#s#s#",
+					&start, 
+					&end,
 					&charset,
 					&(self->charset_len),
 					&hash,
@@ -111,6 +113,10 @@ int Brute_init(Brute *self, PyObject *args) {
 		return -1;
 	}
 
+	// we have to do this to avoid 32 bit bullshit
+	self->start = PyLong_AsUnsignedLongLong(start);
+	self->stop = PyLong_AsUnsignedLongLong(end);
+	
 	memcpy(self->charset, charset, self->charset_len);
 	memcpy(self->hash, hash, self->hash_len);
 	memcpy(self->salt, salt, self->salt_len);		
