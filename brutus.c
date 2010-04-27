@@ -15,13 +15,13 @@ designed to be used in conjunction with brutus.py.
 /*************************************************
 Code needed to actually do the bruteforcing
 *************************************************/
-size_t nth_digit(size_t x, size_t n, size_t base) {
+uint64_t nth_digit(uint64_t x, uint64_t n, uint64_t base) {
 	while(n--)
 		x /= base;
 	return x % base;
 }
 
-char *nth_password(size_t n, size_t charset_len, char *charset) {
+char *nth_password(uint64_t n, uint64_t charset_len, char *charset) {
 	int i, j;
 	// get the number of digits in n
 	for(i=0; pow(charset_len, i) <= n; ++i)
@@ -38,8 +38,8 @@ char *nth_password(size_t n, size_t charset_len, char *charset) {
 	return output;
 }
 
-char *bruteforce(size_t start, size_t stop, size_t charset_len, char *charset, size_t hash_len, char *hash, size_t salt_len, char *salt) {
-	size_t n;
+char *bruteforce(uint64_t start, uint64_t stop, uint64_t charset_len, char *charset, uint64_t hash_len, char *hash, uint64_t salt_len, char *salt) {
+	uint64_t n;
 	for(n=start; n <= stop; n++) {
 		pthread_testcancel();
 		char *pw = nth_password(n, charset_len, charset);
@@ -164,7 +164,7 @@ PyObject *Brute_diagnostic(PyObject *self, PyObject *args) {
 	// its end time
 	double time_diff = difftime(b->end_time, b->start_time);
 	// get the number of hashes it ran through
-	size_t num_hashes = b->stop - b->start;
+	uint64_t num_hashes = b->stop - b->start;
 	// and return them
 	return Py_BuildValue("(f, l)", time_diff, num_hashes);
 }

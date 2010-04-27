@@ -41,14 +41,14 @@ typedef struct {
 	int done;
 	char password[MAX_PASSWORD_LENGTH];
 	// arguments to the bruteforce function
-	size_t start;
-	size_t stop;
+	uint64_t start;
+	uint64_t stop;
 	char charset[MAX_CHARSET_LENGTH];
-	size_t charset_len;
+	uint64_t charset_len;
 	char hash[MAX_HASH_LENGTH];
-	size_t hash_len;
+	uint64_t hash_len;
 	char salt[MAX_SALT_LENGTH];
-	size_t salt_len;
+	uint64_t salt_len;
 	// diagnostics and testing
 	time_t start_time;
 	time_t end_time;
@@ -56,15 +56,15 @@ typedef struct {
 	
 	
 // gets the nth digit of x expressed in base b
-size_t nth_digit(size_t x, size_t n, size_t b);
+uint64_t nth_digit(uint64_t x, uint64_t n, uint64_t b);
 
 // turns the given integer into a password consisting of elements from charset
-char *nth_password(size_t n, size_t charset_len, char *charset);
+char *nth_password(uint64_t n, uint64_t charset_len, char *charset);
 
 // runs through all passwords between start and stop, comparing
 // crypt(pw, salt) to the given hash and returning a match if found
 // returns a NULL if it isn't.
-char *bruteforce(size_t start, size_t stop, size_t charset_len, char *charset, size_t hash_len, char *hash, size_t salt_len, char *salt);
+char *bruteforce(uint64_t start, uint64_t stop, uint64_t charset_len, char *charset, uint64_t hash_len, char *hash, uint64_t salt_len, char *salt);
 
 // wraps the bruteforcer for threading
 void *bruteforce_wrapper(void *args) ;
