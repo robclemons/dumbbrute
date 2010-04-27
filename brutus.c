@@ -114,6 +114,15 @@ int Brute_init(Brute *self, PyObject *args) {
 	}
 
 	// we have to do this to avoid 32 bit bullshit
+	if (!PyLong_Check(start)) {
+		PyErr_SetString(PyExc_TypeError, "start must be an integer argument");
+		return -1;
+	}
+	if (!PyLong_Check(end)) {
+		PyErr_SetString(PyExc_TypeError, "start must be an integer argument");
+		return -1;
+	}
+		
 	self->start = PyLong_AsUnsignedLongLong(start);
 	self->stop = PyLong_AsUnsignedLongLong(end);
 	
