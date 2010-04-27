@@ -49,7 +49,7 @@ class Bruteforcer:
 			# number of rounds is unspecified
 			salt = '$'.join(hash_value.split("$")[:3])
 		# start the brute
-		brute = Brute(start, end, charset, hash_value, salt)
+		brute = Brute(int(start), int(end), charset, hash_value, salt)
 		self.brutes[str(id(brute))] = brute
 		return str(id(brute))
 		
@@ -82,7 +82,7 @@ def discover_peers(port):
 	for i in range(256):
 		hostname = "http://%s.%s:%s" % (local_link, i, port)
 		start_new_thread(test_peer, (hostname, peers))
-	sleep(15)
+	sleep(5)
 	return peers
 	
 def test_peer(hostname, peers):
@@ -168,7 +168,7 @@ def start_master(charset, max_pw_len, addr_list, hash_value):
 		for i in range(num_threads):
 			tmp = start
 			start += hashes_per_thread
-			job_id = proxy.bruteforce(tmp, start, charset, hash_value)
+			job_id = proxy.bruteforce(str(tmp), str(start), charset, hash_value)
 			results.append((proxy, job_id))
 		
 	# poll the machines on a 1 minute interval asking for results
@@ -234,7 +234,7 @@ if __name__ == "__main__":
 		nodefile = "\n".join(addr_list)
 		f.write(nodefile)
 
-	if addr_list:
+	if addr_list and not opts.outfile:
 		retval = start_master(opts.charset, opts.length, addr_list, args[0])
 		if retval: print(retval)
 		else: print("The password was not found")
