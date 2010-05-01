@@ -162,31 +162,36 @@ def start_master(charset, max_pw_len, addr_list, hash_value):
 	
 	# now start the bruteforcing
 	results = []
-	for proxy in proxy_list:
-		num_threads = threads_per_proxy[proxy]
-		compute_units_per_thread = compute_units_per_proxy[proxy]
-		hashes_per_thread = hashes_per_compute_unit * compute_units_per_thread
-		for i in range(num_threads):
-			tmp = start
-			start += hashes_per_thread
-			keyspace_start = str(tmp)
-			keyspace_end = str(start)
-			job_id = proxy.bruteforce(keyspace_start, keyspace_end, charset, hash_value)
-			results.append((proxy, job_id))
+	try:
+		for proxy in proxy_list:
+			num_threads = threads_per_proxy[proxy]
+			compute_units_per_thread = compute_units_per_proxy[proxy]
+			hashes_per_thread = hashes_per_compute_unit * compute_units_per_thread
+			for i in range(num_threads):
+				tmp = start
+				start += hashes_per_thread
+				keyspace_start = str(tmp)
+				keyspace_end = str(start)
+				job_id = proxy.bruteforce(keyspace_start, keyspace_end, charset, hash_value)
+				results.append((proxy, job_id))
 		
-	# poll the machines on a 1 minute interval asking for results
-	password = ""
-	still_running = True
-	while still_running:
-		sleep(10)
-		still_running = False
-		for proxy, job_id in results:
-			status, password = proxy.done(job_id)
-			if not status: still_running = True
-			if password: break
+		# poll the machines on a 1 minute interval asking for results
+		password = ""
+		still_running = True
+		while still_running:
+			sleep(10)
+			still_running = False
+			for proxy, job_id in results:
+				status, password = proxy.done(job_id)
+				if not status: still_running = True
+				if password: break
 	
-	for proxy, job_id in results:
-		proxy.kill(job_id)
+		for proxy, job_id in results:
+			proxy.kill(job_id)
+
+	except KeyboardInterrupt:
+		for proxy, job_id in results:
+			proxy.kill(job_id)
 		
 	return password
 	
