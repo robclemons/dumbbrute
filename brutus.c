@@ -40,10 +40,13 @@ char *nth_password(uint64_t n, uint64_t charset_len, char *charset) {
 
 char *bruteforce(uint64_t start, uint64_t stop, uint64_t charset_len, char *charset, uint64_t hash_len, char *hash, uint64_t salt_len, char *salt) {
 	uint64_t n;
+	struct crypt_data *data = {0};
+	data = malloc(sizeof(*data));
 	for(n=start; n <= stop; n++) {
 		pthread_testcancel();
 		char *pw = nth_password(n, charset_len, charset);
-		if(strcmp(crypt(pw, salt), hash) == 0)
+		data->initialized = 0;
+		if(strcmp(crypt_r(pw, salt, data), hash) == 0)
 			return pw;
 		free(pw);
 	}
