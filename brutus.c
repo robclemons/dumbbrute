@@ -21,41 +21,51 @@ uint64_t nth_digit(uint64_t x, uint64_t n, uint64_t base) {
 	return x % base;
 }
 
-char *nth_password(uint64_t n, uint64_t charset_len, char *charset) {
+void nth_password(char *pw, uint64_t n, uint64_t charset_len, char *charset) {
 	int i, j;
 	// get the number of digits in n
 	for(i=0; pow(charset_len, i) <= n; ++i)
 		n -= pow(charset_len, i);
 
-	// allocate space for output
-	char *output = (char*)malloc(sizeof(char) * (i+1));
-	bzero(output, i+1);
-	
 	// and fill it with the appropriate characters
 	for(j=0; j < i; j++)
-		output[j] = charset[nth_digit(n, j, charset_len)];
-		
-	return output;
+		pw[j] = charset[nth_digit(n, j, charset_len)];
 }
 
-char *bruteforce(uint64_t start, uint64_t stop, uint64_t charset_len, char *charset, uint64_t hash_len, char *hash, uint64_t salt_len, char *salt) {
+char *bruteforce(uint64_t start, uint64_t *stop, uint64_t charset_len, char *charset, PyObject *word_list, uint64_t hash_len, char *hash, uint64_t salt_len, char *salt) {
 	uint64_t n;
 	struct crypt_data *data = {0};
 	data = malloc(sizeof(*data));
-	for(n=start; n <= stop; n++) {
+	char *pw = (char *)malloc(MAX_PASSWORD_LENGTH * sizeof(char));
+	int listSize = PyList_Size(word_list);
+	for(n=start; n <= *stop; n++) {
 		pthread_testcancel();
-		char *pw = nth_password(n, charset_len, charset);
+		memset(pw, '\0', MAX_PASSWORD_LENGTH);
+		if(listSize) {
+			PyObject *pw_item = PyList_GetItem(word_list, n);
+			if(!PyUnicode_CheckExact(pw_item)) {
+				PyErr_SetString(PyExc_TypeError, "could not retrieve word from wordlist");
+				return NULL;
+			}
+			PyObject* pyStr = PyUnicode_AsUTF8String(pw_item);
+			char * temp_pw = PyBytes_AS_STRING(pyStr);
+			strncpy(pw,temp_pw,strlen(temp_pw) - 1);
+		}
+		else
+			nth_password(pw, n, charset_len, charset);
 		data->initialized = 0;
-		if(strcmp(crypt_r(pw, salt, data), hash) == 0)
+		if(strcmp(crypt_r(pw, salt, data), hash) == 0) {
+			*stop = n; 
 			return pw;
-		free(pw);
+		}
 	}
+	free(pw);
 	return NULL;
 }
 
 void *bruteforce_wrapper(void *args) {
 	Brute *b = (Brute *)args;
-	char *result = bruteforce(b->start, b->stop, b->charset_len, b->charset, b->hash_len, b->hash, b->salt_len, b->salt);
+	char *result = bruteforce(b->start, &(b->stop), b->charset_len, b->charset, b->word_list, b->hash_len, b->hash, b->salt_len, b->salt);
 	pthread_mutex_lock(&(b->done_mutex));
 	b->done = BRUTE_DONE;
 	if(result) 
@@ -63,6 +73,7 @@ void *bruteforce_wrapper(void *args) {
 	pthread_mutex_unlock(&(b->done_mutex));
 	b->end_time = time(NULL);
 	free(result);
+	Py_XDECREF(b->word_list);
 	return NULL;
 }
 
@@ -101,9 +112,10 @@ int Brute_init(Brute *self, PyObject *args) {
 	const char *salt;
 	PyObject *start;
 	PyObject *end;
-	if (!PyArg_ParseTuple(args, "OOs#s#s#",
+	if (!PyArg_ParseTuple(args, "OOOs#s#s#",
 					&start, 
 					&end,
+					&(self->word_list),
 					&charset,
 					&(self->charset_len),
 					&hash,
@@ -125,10 +137,9 @@ int Brute_init(Brute *self, PyObject *args) {
 		PyErr_SetString(PyExc_TypeError, "start must be an integer argument");
 		return -1;
 	}
-		
+	Py_XINCREF(self->word_list);
 	self->start = PyLong_AsUnsignedLongLong(start);
 	self->stop = PyLong_AsUnsignedLongLong(end);
-	
 	memcpy(self->charset, charset, self->charset_len);
 	memcpy(self->hash, hash, self->hash_len);
 	memcpy(self->salt, salt, self->salt_len);		
@@ -146,7 +157,7 @@ int Brute_init(Brute *self, PyObject *args) {
 	
 	// set the start time
 	self->start_time = time(NULL);
-	 
+
 	// and go home
 	return 0;	
 }

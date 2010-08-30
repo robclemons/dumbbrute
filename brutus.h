@@ -45,6 +45,7 @@ typedef struct {
 	uint64_t stop;
 	char charset[MAX_CHARSET_LENGTH];
 	uint64_t charset_len;
+	PyObject *word_list;
 	char hash[MAX_HASH_LENGTH];
 	uint64_t hash_len;
 	char salt[MAX_SALT_LENGTH];
@@ -59,12 +60,12 @@ typedef struct {
 uint64_t nth_digit(uint64_t x, uint64_t n, uint64_t b);
 
 // turns the given integer into a password consisting of elements from charset
-char *nth_password(uint64_t n, uint64_t charset_len, char *charset);
+void nth_password(char *pw, uint64_t n, uint64_t charset_len, char *charset);
 
 // runs through all passwords between start and stop, comparing
 // crypt(pw, salt) to the given hash and returning a match if found
 // returns a NULL if it isn't.
-char *bruteforce(uint64_t start, uint64_t stop, uint64_t charset_len, char *charset, uint64_t hash_len, char *hash, uint64_t salt_len, char *salt);
+char *bruteforce(uint64_t start, uint64_t *stop, uint64_t charset_len, char *charset, PyObject *word_list, uint64_t hash_len, char *hash, uint64_t salt_len, char *salt);
 
 // wraps the bruteforcer for threading
 void *bruteforce_wrapper(void *args) ;

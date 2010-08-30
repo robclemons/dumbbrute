@@ -40,7 +40,7 @@ class Bruteforcer:
 		results = timeit("crypt('%s', '%s')" % (password, salt), setup=setup, number=100)
 		return floor(100/results)
 
-	def bruteforce(self, start, end, charset, hash_value):
+	def bruteforce(self, start, end, charset, word_list, hash_value):
 		# get the salt from the hash
 		if "rounds" in hash_value:
 			# if the number of rounds is specified
@@ -50,15 +50,15 @@ class Bruteforcer:
 			salt = '$'.join(hash_value.split("$")[:3])
 		# start the brute
 		print(start, end)
-		brute = Brute(int(start), int(end), charset, hash_value, salt)
+		brute = Brute(int(start), int(end), word_list, charset, hash_value, salt)
 		self.brutes[str(id(brute))] = brute
 		return str(id(brute))
 		
 	def done(self, job):
 		return self.brutes[job].done()
 
-	def history(self, job):
-		return self.brutes[job].history()
+	def diagnostic(self, job):
+		return self.brutes[job].diagnostic()
 		
 	def kill(self, job):
 		return self.brutes[job].kill()
@@ -116,19 +116,30 @@ def start_server(log_requests, port):
 	server.register_function(cpu_count)
 	server.serve_forever()
 
-def start_local(num_threads, max_pw_len, charset, hash_value, port, verbose):
+def start_local(num_threads, max_pw_len, charset, word_list, hash_value, port, verbose):
 	start_new_thread(start_server, (verbose, port))
 	proxy = ServerProxy("http://localhost:" + str(port))
 	if not proxy.heartbeat():
 		raise Exception("Could not connect to local server")
 	start = 0
 	jobs = []
-	end = num_passwords(charset, max_pw_len)
+	if word_list:
+		end = len(word_list)
+	else:
+		end = num_passwords(charset, max_pw_len)
 	hashes_per_brute = ceil((end - start)/num_threads)
 	for i in range(num_threads):
 		tmp = start
 		start += hashes_per_brute
-		jobs.append(proxy.bruteforce(str(tmp), str(start), charset, hash_value))
+		tmp_list = []
+		if word_list:
+			tmp_list = word_list[:hashes_per_brute]
+			word_list = word_list[hashes_per_brute:]
+			tmp = 0
+			start = len(tmp_list) -1
+			print(tmp_list)
+		if tmp_list == []: break
+		jobs.append(proxy.bruteforce(str(tmp), str(start), charset, tmp_list, hash_value))
 	all_done = False
 	while not all_done:
 		sleep(5)
@@ -138,6 +149,7 @@ def start_local(num_threads, max_pw_len, charset, hash_value, port, verbose):
 			if not result[0]:
 				all_done = False
 			elif len(result[1]):
+				print(proxy.diagnostic(job))
 				return result[1]
 	return False
 	
@@ -219,6 +231,9 @@ if __name__ == "__main__":
 		
 	parser.add_option("-o", "--outfile", dest="outfile", type="string",
 		help="Specifies the file to output discovered nodes to", default="")
+
+	parser.add_option("-w", "--wordlist", dest="wordlist", default=False,
+		help="File location containing a newline delimited list of passwords to try")
 		
 	parser.add_option("-v", "--verbose", action="store_true", help="Emit server logs")
 	
@@ -227,6 +242,8 @@ if __name__ == "__main__":
 	opts, args = parser.parse_args()
 	
 	addr_list = []
+
+	word_list = []
 	
 	if not len(args) and not opts.discover:
 		start_server(opts.verbose, opts.port)
@@ -237,6 +254,10 @@ if __name__ == "__main__":
 	elif opts.nodes:
 		addr_list = open(opts.nodes).readlines()
 		
+	if opts.wordlist:
+		word_list = open(opts.wordlist).readlines()
+		print(len(word_list))
+
 	if opts.outfile and opts.discover:
 		f = open(opts.outfile, "w")
 		nodefile = "\n".join(addr_list)
@@ -248,6 +269,6 @@ if __name__ == "__main__":
 		else: print("The password was not found")
 		
 	elif not opts.nodes and not opts.discover and not opts.outfile:
-		result = start_local(opts.threads, opts.length, opts.charset, args[0], opts.port, opts.verbose)
+		result = start_local(opts.threads, opts.length, opts.charset, word_list, args[0], opts.port, opts.verbose)
 		if result: print(result)
 		else: print("The password was not found")
