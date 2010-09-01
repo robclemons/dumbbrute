@@ -32,48 +32,46 @@ void nth_password(char *pw, uint64_t n, uint64_t charset_len, char *charset) {
 		pw[j] = charset[nth_digit(n, j, charset_len)];
 }
 
-char *bruteforce(uint64_t start, uint64_t *stop, uint64_t charset_len, char *charset, PyObject *word_list, uint64_t hash_len, char *hash, uint64_t salt_len, char *salt) {
+char *bruteforce(uint64_t start, uint64_t *stop, uint64_t charset_len, char *charset, char **word_array, size_t list_size, uint64_t hash_len, char *hash, uint64_t salt_len, char *salt) {
 	uint64_t n;
 	struct crypt_data *data = {0};
 	data = malloc(sizeof(*data));
 	char *pw = (char *)malloc(MAX_PASSWORD_LENGTH * sizeof(char));
-	int listSize = PyList_Size(word_list);
 	for(n=start; n <= *stop; n++) {
 		pthread_testcancel();
 		memset(pw, '\0', MAX_PASSWORD_LENGTH);
-		if(listSize) {
-			PyObject *pw_item = PyList_GetItem(word_list, n);
-			if(!PyUnicode_CheckExact(pw_item)) {
-				PyErr_SetString(PyExc_TypeError, "could not retrieve word from wordlist");
-				return NULL;
-			}
-			PyObject* pyStr = PyUnicode_AsUTF8String(pw_item);
-			char * temp_pw = PyBytes_AS_STRING(pyStr);
-			strncpy(pw,temp_pw,strlen(temp_pw) - 1);
+		if(list_size) {
+			size_t pw_len = strlen(word_array[n]);
+			memcpy(pw, word_array[n], pw_len - 1); //get pw minus newline
 		}
 		else
 			nth_password(pw, n, charset_len, charset);
 		data->initialized = 0;
 		if(strcmp(crypt_r(pw, salt, data), hash) == 0) {
-			*stop = n; 
+			*stop = n;
 			return pw;
 		}
 	}
 	free(pw);
+
 	return NULL;
 }
 
 void *bruteforce_wrapper(void *args) {
 	Brute *b = (Brute *)args;
-	char *result = bruteforce(b->start, &(b->stop), b->charset_len, b->charset, b->word_list, b->hash_len, b->hash, b->salt_len, b->salt);
+	char *result = bruteforce(b->start, &(b->stop), b->charset_len, b->charset, b->word_array, b->list_size, b->hash_len, b->hash, b->salt_len, b->salt);
 	pthread_mutex_lock(&(b->done_mutex));
 	b->done = BRUTE_DONE;
 	if(result) 
 		strcpy(b->password, result);
 	pthread_mutex_unlock(&(b->done_mutex));
 	b->end_time = time(NULL);
+	int i = 0;
+	for(i = 0; i < b->list_size; i++)
+		free(b->word_array[i]);
+	free(b->word_array);
 	free(result);
-	Py_XDECREF(b->word_list);
+
 	return NULL;
 }
 
@@ -112,10 +110,11 @@ int Brute_init(Brute *self, PyObject *args) {
 	const char *salt;
 	PyObject *start;
 	PyObject *end;
+	PyObject *word_list;
 	if (!PyArg_ParseTuple(args, "OOOs#s#s#",
 					&start, 
 					&end,
-					&(self->word_list),
+					&word_list,
 					&charset,
 					&(self->charset_len),
 					&hash,
@@ -137,12 +136,29 @@ int Brute_init(Brute *self, PyObject *args) {
 		PyErr_SetString(PyExc_TypeError, "start must be an integer argument");
 		return -1;
 	}
-	Py_XINCREF(self->word_list);
+
 	self->start = PyLong_AsUnsignedLongLong(start);
 	self->stop = PyLong_AsUnsignedLongLong(end);
 	memcpy(self->charset, charset, self->charset_len);
 	memcpy(self->hash, hash, self->hash_len);
-	memcpy(self->salt, salt, self->salt_len);		
+	memcpy(self->salt, salt, self->salt_len);
+
+	self->list_size = PyList_Size(word_list);
+	self->word_array = (char **)malloc(self->list_size * sizeof(char *));
+	int i = 0;		
+	for(i = 0; i < self->list_size; i++)
+	{
+		PyObject *pw_item = PyUnicode_AsUTF8String(PyList_GetItem(word_list, i));
+		if(!PyBytes_CheckExact(pw_item)) {
+			PyErr_SetString(PyExc_TypeError, "could not retrieve word from wordlist");
+				return 1;
+			}
+		Py_ssize_t len;
+		const char *temp_pw = (char *)malloc(MAX_PASSWORD_LENGTH * sizeof(char));
+		PyObject_AsCharBuffer(pw_item, &temp_pw, &len);
+		self->word_array[i] = (char *)malloc(len * sizeof(char));
+		memcpy(self->word_array[i],temp_pw,len);
+	}		
 
 	// set the done state
 	self->done = BRUTE_RUNNING;
@@ -193,7 +209,7 @@ PyObject *Brute_diagnostic(PyObject *self, PyObject *args) {
 	// its end time
 	double time_diff = difftime(b->end_time, b->start_time);
 	// get the number of hashes it ran through
-	uint64_t num_hashes = b->stop - b->start;
+	uint64_t num_hashes = b->stop - b->start + 1;
 	// and return them
 	return Py_BuildValue("(f, l)", time_diff, num_hashes);
 }
@@ -205,6 +221,10 @@ PyObject *Brute_kill(PyObject *self, PyObject *args) {
 }
 
 void Brute_dealloc(Brute *self) {
+	int i = 0;
+	for(i = 0; i < self->list_size; i++)
+		free(self->word_array[i]);
+	free(self->word_array);
 	Py_TYPE(self)->tp_free((PyObject*)self);
 }
 

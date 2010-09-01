@@ -49,7 +49,7 @@ class Bruteforcer:
 			# number of rounds is unspecified
 			salt = '$'.join(hash_value.split("$")[:3])
 		# start the brute
-		print(start, end)
+		print("start = ", start," end = ", end)
 		brute = Brute(int(start), int(end), word_list, charset, hash_value, salt)
 		self.brutes[str(id(brute))] = brute
 		return str(id(brute))
@@ -63,6 +63,9 @@ class Bruteforcer:
 	def kill(self, job):
 		return self.brutes[job].kill()
 		
+def print_diagnostics(proxy, job):
+	seconds, numhashes = proxy.diagnostic(job)
+	print("It took",seconds,"seconds to compute", numhashes, "hashes on the thread that found the password")
 
 def num_passwords(charset, maximum_password_length):
 	possibleNum = 0
@@ -123,7 +126,7 @@ def start_local(num_threads, max_pw_len, charset, word_list, hash_value, port, v
 		raise Exception("Could not connect to local server")
 	start = 0
 	jobs = []
-	if word_list:
+	if len(word_list):
 		end = len(word_list)
 	else:
 		end = num_passwords(charset, max_pw_len)
@@ -132,14 +135,14 @@ def start_local(num_threads, max_pw_len, charset, word_list, hash_value, port, v
 		tmp = start
 		start += hashes_per_brute
 		tmp_list = []
-		if word_list:
+		if len(word_list):
 			tmp_list = word_list[:hashes_per_brute]
 			word_list = word_list[hashes_per_brute:]
 			tmp = 0
 			start = len(tmp_list) -1
-			print(tmp_list)
-		if tmp_list == []: break
 		jobs.append(proxy.bruteforce(str(tmp), str(start), charset, tmp_list, hash_value))
+		if len(tmp_list) and not len(word_list):
+			break
 	all_done = False
 	while not all_done:
 		sleep(5)
@@ -149,11 +152,11 @@ def start_local(num_threads, max_pw_len, charset, word_list, hash_value, port, v
 			if not result[0]:
 				all_done = False
 			elif len(result[1]):
-				print(proxy.diagnostic(job))
+				print_diagnostics(proxy, job)
 				return result[1]
 	return False
 	
-def start_master(charset, max_pw_len, addr_list, hash_value):
+def start_master(charset, max_pw_len, word_list, addr_list, hash_value):
 	
 	# create the proxy list
 	proxy_list = [ServerProxy(addr) for addr in addr_list]
@@ -169,9 +172,13 @@ def start_master(charset, max_pw_len, addr_list, hash_value):
 	
 	# get the number of passwords and passwords/thread
 	start = 0
-	end = num_passwords(charset, max_pw_len)
+	if word_list:
+		end = len(word_list)
+	else:
+		end = num_passwords(charset, max_pw_len)
+	print("total compute units = " + str(total_compute_units))
 	hashes_per_compute_unit = ceil(end/total_compute_units)
-	
+	print("hashes per compute unit = " + str(hashes_per_compute_unit))
 	# now start the bruteforcing
 	results = []
 	try:
@@ -179,13 +186,22 @@ def start_master(charset, max_pw_len, addr_list, hash_value):
 			num_threads = threads_per_proxy[proxy]
 			compute_units_per_thread = compute_units_per_proxy[proxy]
 			hashes_per_thread = hashes_per_compute_unit * compute_units_per_thread
+			print("hashes per thread = " + str(hashes_per_thread))
 			for i in range(num_threads):
+				tmp_list = []
 				tmp = start
 				start += hashes_per_thread
+				if word_list:
+					tmp_list = word_list[:hashes_per_thread]
+					word_list = word_list[hashes_per_thread:]
+					tmp = 0
+					start = len(tmp_list) -1
 				keyspace_start = str(tmp)
 				keyspace_end = str(start)
-				job_id = proxy.bruteforce(keyspace_start, keyspace_end, charset, hash_value)
-				results.append((proxy, job_id))
+				job_id = proxy.bruteforce(keyspace_start, keyspace_end, charset, tmp_list, hash_value)
+				results.append((proxy, job_id))		
+				if len(tmp_list) and not len(word_list):
+					break
 		
 		# poll the machines on a 1 minute interval asking for results
 		password = ""
@@ -196,7 +212,9 @@ def start_master(charset, max_pw_len, addr_list, hash_value):
 			for proxy, job_id in results:
 				status, password = proxy.done(job_id)
 				if not status: still_running = True
-				if password: break
+				if password: 
+					print_diagnostics(proxy, job_id)
+					break
 	
 		for proxy, job_id in results:
 			proxy.kill(job_id)
@@ -232,7 +250,7 @@ if __name__ == "__main__":
 	parser.add_option("-o", "--outfile", dest="outfile", type="string",
 		help="Specifies the file to output discovered nodes to", default="")
 
-	parser.add_option("-w", "--wordlist", dest="wordlist", default=False,
+	parser.add_option("-w", "--wordlist", dest="wordlist", default=[],
 		help="File location containing a newline delimited list of passwords to try")
 		
 	parser.add_option("-v", "--verbose", action="store_true", help="Emit server logs")
@@ -256,7 +274,7 @@ if __name__ == "__main__":
 		
 	if opts.wordlist:
 		word_list = open(opts.wordlist).readlines()
-		print(len(word_list))
+		print(str(len(word_list)) + " words loaded")
 
 	if opts.outfile and opts.discover:
 		f = open(opts.outfile, "w")
@@ -264,7 +282,7 @@ if __name__ == "__main__":
 		f.write(nodefile)
 
 	if addr_list and not opts.outfile:
-		retval = start_master(opts.charset, opts.length, addr_list, args[0])
+		retval = start_master(opts.charset, opts.length, word_list, addr_list, args[0])
 		if retval: print(retval)
 		else: print("The password was not found")
 		
