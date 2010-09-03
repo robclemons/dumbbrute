@@ -154,7 +154,7 @@ int Brute_init(Brute *self, PyObject *args) {
 				return 1;
 			}
 		Py_ssize_t len;
-		const char *temp_pw = (char *)malloc(MAX_PASSWORD_LENGTH * sizeof(char));
+		const char *temp_pw;
 		PyObject_AsCharBuffer(pw_item, &temp_pw, &len);
 		self->word_array[i] = (char *)malloc(len * sizeof(char));
 		memcpy(self->word_array[i],temp_pw,len);
