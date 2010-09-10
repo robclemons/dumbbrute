@@ -4,6 +4,7 @@
 dumbbrute.py
 
 Written by Robbie Clemons and Geremy Condra
+email: RobClemons@gmail.com
 Licensed under GPLv3
 Released 16 April 2010
 """
@@ -181,6 +182,7 @@ def start_master(charset, max_pw_len, word_list, addr_list, hash_value):
 	print("hashes per compute unit = " + str(hashes_per_compute_unit))
 	# now start the bruteforcing
 	results = []
+	password = ""
 	try:
 		for proxy in proxy_list:
 			num_threads = threads_per_proxy[proxy]
@@ -204,8 +206,8 @@ def start_master(charset, max_pw_len, word_list, addr_list, hash_value):
 					break
 		
 		# poll the machines on a 1 minute interval asking for results
-		password = ""
 		still_running = True
+		print("waiting...")
 		while still_running:
 			sleep(10)
 			still_running = False

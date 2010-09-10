@@ -1,7 +1,7 @@
 /************************************************
 brutus.h
 
-Written by Geremy Condra
+Written by Robbie Clemons and Geremy Condra
 Licensed under GPLv3
 Released 20 April 2010
 
@@ -21,7 +21,7 @@ designed to be used in conjunction with brutus.py.
 #ifndef BRUTUS_H
 #define BRUTUS_H
 
-#define MAX_PASSWORD_LENGTH 500
+#define MAX_PASSWORD_LENGTH 100
 #define MAX_CHARSET_LENGTH 500
 #define MAX_HASH_LENGTH 500
 #define MAX_SALT_LENGTH 500
@@ -46,7 +46,7 @@ typedef struct {
 	char charset[MAX_CHARSET_LENGTH];
 	uint64_t charset_len;
 	size_t list_size;
-	char **word_array;
+	char (*word_array)[MAX_PASSWORD_LENGTH];
 	char hash[MAX_HASH_LENGTH];
 	uint64_t hash_len;
 	char salt[MAX_SALT_LENGTH];
@@ -56,7 +56,9 @@ typedef struct {
 	time_t end_time;
 } Brute;
 	
-	
+// frees allocated memory when thread is cancelled
+void clean_thread(void *args);
+
 // gets the nth digit of x expressed in base b
 uint64_t nth_digit(uint64_t x, uint64_t n, uint64_t b);
 
@@ -66,7 +68,8 @@ void nth_password(char *pw, uint64_t n, uint64_t charset_len, char *charset);
 // runs through all passwords between start and stop, comparing
 // crypt(pw, salt) to the given hash and returning a match if found
 // returns a NULL if it isn't.
-char *bruteforce(uint64_t start, uint64_t *stop, uint64_t charset_len, char *charset, char **word_array, size_t list_size, uint64_t hash_len, char *hash, uint64_t salt_len, char *salt);
+char *bruteforce(Brute *b);
+
 
 // wraps the bruteforcer for threading
 void *bruteforce_wrapper(void *args) ;

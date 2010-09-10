@@ -1,7 +1,7 @@
 /************************************************
 brutus.c
 
-Written by Geremy Condra
+Written by Robbie Clemons and Geremy Condra
 Licensed under GPLv3
 Released 20 April 2010
 
@@ -11,6 +11,15 @@ designed to be used in conjunction with brutus.py.
 *************************************************/
 
 #include "brutus.h"
+
+/************************************************
+Free memory when thread is cancelle
+************************************************/
+void clean_thread(void *args)
+{
+	Brute *b = (Brute *)args;
+	PyMem_Free(b->word_array);
+}
 
 /*************************************************
 Code needed to actually do the bruteforcing
@@ -32,46 +41,45 @@ void nth_password(char *pw, uint64_t n, uint64_t charset_len, char *charset) {
 		pw[j] = charset[nth_digit(n, j, charset_len)];
 }
 
-char *bruteforce(uint64_t start, uint64_t *stop, uint64_t charset_len, char *charset, char **word_array, size_t list_size, uint64_t hash_len, char *hash, uint64_t salt_len, char *salt) {
+char *bruteforce(Brute *b) {
 	uint64_t n;
 	struct crypt_data *data = {0};
 	data = malloc(sizeof(*data));
 	char *pw = (char *)malloc(MAX_PASSWORD_LENGTH * sizeof(char));
-	for(n=start; n <= *stop; n++) {
+	for(n= b->start; n <= b->stop; n++) {
 		pthread_testcancel();
 		memset(pw, '\0', MAX_PASSWORD_LENGTH);
-		if(list_size) {
-			size_t pw_len = strlen(word_array[n]);
-			memcpy(pw, word_array[n], pw_len - 1); //get pw minus newline
+		if(b->list_size) {
+			size_t pw_len = strlen(b->word_array[n]);
+			memcpy(pw, b->word_array[n], pw_len - 1); //get password without newline
 		}
 		else
-			nth_password(pw, n, charset_len, charset);
+			nth_password(pw, n, b->charset_len, b->charset);
 		data->initialized = 0;
-		if(strcmp(crypt_r(pw, salt, data), hash) == 0) {
-			*stop = n;
+		if(strcmp(crypt_r(pw, b->salt, data), b->hash) == 0) {
+			b->stop = n;
+			free(data);
 			return pw;
 		}
 	}
 	free(pw);
-
+	free(data);
 	return NULL;
 }
 
 void *bruteforce_wrapper(void *args) {
 	Brute *b = (Brute *)args;
-	char *result = bruteforce(b->start, &(b->stop), b->charset_len, b->charset, b->word_array, b->list_size, b->hash_len, b->hash, b->salt_len, b->salt);
+	pthread_cleanup_push(clean_thread, (void *)b);
+	char *result = bruteforce(b);
 	pthread_mutex_lock(&(b->done_mutex));
 	b->done = BRUTE_DONE;
 	if(result) 
 		strcpy(b->password, result);
 	pthread_mutex_unlock(&(b->done_mutex));
 	b->end_time = time(NULL);
-	int i = 0;
-	for(i = 0; i < b->list_size; i++)
-		free(b->word_array[i]);
-	free(b->word_array);
+	PyMem_Free(b->word_array);
 	free(result);
-
+	pthread_cleanup_pop(0);
 	return NULL;
 }
 
@@ -144,7 +152,7 @@ int Brute_init(Brute *self, PyObject *args) {
 	memcpy(self->salt, salt, self->salt_len);
 
 	self->list_size = PyList_Size(word_list);
-	self->word_array = (char **)malloc(self->list_size * sizeof(char *));
+	self->word_array = PyMem_Malloc(self->list_size * MAX_PASSWORD_LENGTH * sizeof(char));
 	int i = 0;		
 	for(i = 0; i < self->list_size; i++)
 	{
@@ -156,7 +164,6 @@ int Brute_init(Brute *self, PyObject *args) {
 		Py_ssize_t len;
 		const char *temp_pw;
 		PyObject_AsCharBuffer(pw_item, &temp_pw, &len);
-		self->word_array[i] = (char *)malloc(len * sizeof(char));
 		memcpy(self->word_array[i],temp_pw,len);
 	}		
 
@@ -168,9 +175,9 @@ int Brute_init(Brute *self, PyObject *args) {
 	pthread_attr_t attr;
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
-	pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &dummy);
+	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &dummy);
 	pthread_create(&(self->thread_id), &attr, bruteforce_wrapper, (void*)self);
-	
+
 	// set the start time
 	self->start_time = time(NULL);
 
@@ -211,20 +218,19 @@ PyObject *Brute_diagnostic(PyObject *self, PyObject *args) {
 	// get the number of hashes it ran through
 	uint64_t num_hashes = b->stop - b->start + 1;
 	// and return them
-	return Py_BuildValue("(f, l)", time_diff, num_hashes);
+	return Py_BuildValue("(d, l)", time_diff, num_hashes);
 }
 
 PyObject *Brute_kill(PyObject *self, PyObject *args) {
 	Brute *b = (Brute *)self;
+
 	int value = pthread_cancel(b->thread_id);
 	return Py_BuildValue("l", value);
 }
 
 void Brute_dealloc(Brute *self) {
-	int i = 0;
-	for(i = 0; i < self->list_size; i++)
-		free(self->word_array[i]);
-	free(self->word_array);
+	PyMem_Free(self->word_array);
+	pthread_mutex_destroy(&(self->done_mutex));
 	Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
